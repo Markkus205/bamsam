@@ -1,0 +1,7 @@
+@HD	VN:1.0	SO:unsorted
+@SQ	SN:chr1	LN:12
+read1	0	chr1	1	60	4M	*	0	0	ACTG	IIII
+read2	0	chr1	5	20	4M	*	0	0	ACCG	HHHH
+read3	0	chr1	9	10	4M	*	0	0	GATT	FFFF
+read4	0	chr1	3	40	2S4M	*	0	0	TTACTG	!!JJJJ
+read5	0	chr1	7	50	2M1I3M	*	0	0	TGAACT	BBJJJJ
