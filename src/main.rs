@@ -3,33 +3,34 @@ mod statistic;
 
 use runner::*;
 use statistic::linecount::LineCount;
+use statistic::qualfilter::QualityFilterStat;
+use statistic::regfilter::RegionFilterStat; 
+
 use clap::Parser;
-use std::fs::File;
-use std::io::{self, BufReader};
+use std::io::{self};
 
 /// Command-line arguments
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)] //we can remove this dont need a struct
+    #[arg(short, long)]
     bam_file: String,
 }
 
 fn main() -> io::Result<()> {
-
     let args = Args::parse();
 
-
-    let bam_file = File::open(&args.bam_file)?;
-    let reader = BufReader::new(bam_file);
-
-
     let mut runner = WorkflowRunner::new();
+
+    // Add customization as inputs instead of manually editing here (expand the struct?)
+    runner.add_statistic(Box::new(RegionFilterStat::new("2".to_string(), 1, 3)));
+
+    runner.add_statistic(Box::new(QualityFilterStat::new(20.0)));
+
     runner.add_statistic(Box::new(LineCount::new()));
 
-
-    runner.process(reader)?;
-
+    runner.process(&args.bam_file)?;
+    //Add more features. Min overlap, read depth, etc.
     let finalized_stats = runner.finalize();
     for stat in finalized_stats {
         println!("{}", stat.finalize());
@@ -37,4 +38,7 @@ fn main() -> io::Result<()> {
 
     Ok(())
 }
-//HOW WOULD I PIPE THESE FUNCTIONS? DOES THAT EVEN WORK WITH A RUNNER?
+
+//cargo run -- -b data/readsbam.bam
+//cargo build
+//./target/debug/bam_workflow_runner -b data/multireadsbam.bam

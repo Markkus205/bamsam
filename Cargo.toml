@@ -1,9 +1,12 @@
 [package]
-name = "bamsam"
+name = "bam_workflow_runner"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+noodles-core = "0.17"
+noodles-bam = "0.79.0"
+noodles-sam = "0.75"
 clap = { version = "4.0", features = ["derive"] }
 flate2 = "1.1.0"  # Can decompress gzipped file on the fly
 serde = {version = "1.0.219", features = ["derive"]}  # Enables (de)serialization of structs into various formats

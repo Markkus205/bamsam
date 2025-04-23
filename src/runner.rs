@@ -1,63 +1,68 @@
-use std::io::{self, BufRead};
+use noodles_bam::{io::Reader, record::Record};
+use noodles_sam as sam;
+use std::fs::File;
+use std::io::{self, BufReader};
 
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct BamRecord {
-    pub raw_data: Vec<u8>, //add decoded fields here???
-}
-
-/// Represents the BAM file header.
 #[derive(Debug, Default, Clone)]
 pub struct BamHeader {
-    pub raw_data: Vec<u8>, //when do i fill this? decode right away?
+    pub header: sam::Header,
 }
-
 
 pub trait Statistic {
-    fn process(&mut self, record: &BamRecord);
-    fn finalize(&self) -> String; // Optional: make outputable
+    fn process(&mut self, record: &Record, header: &sam::Header) -> io::Result<bool>;
+    fn finalize(&self) -> String;
 }
-
 
 pub struct WorkflowRunner {
     pub stats: Vec<Box<dyn Statistic>>,
+    pub header: Option<BamHeader>,
 }
 
 impl WorkflowRunner {
-    /// Creates a new runner.
     pub fn new() -> Self {
-        Self { stats: Vec::new() }
+        Self {
+            stats: Vec::new(),
+            header: None,
+        }
     }
 
-    /// Registers a new statistic to the workflow.
     pub fn add_statistic(&mut self, stat: Box<dyn Statistic>) {
         self.stats.push(stat);
     }
 
-    /// Processes BAM records from a buffered reader.
-    pub fn process<R: BufRead>(&mut self, mut reader: R) -> io::Result<()> {
-        let mut record = BamRecord::default();
-        while Self::parse_record(&mut reader, &mut record)? {
-            for stat in self.stats.iter_mut() {
-                stat.process(&record);
-            }
-        }
+    pub fn decode_header<R: io::Read>(&mut self, reader: &mut Reader<R>) -> io::Result<()> {
+        let header = reader.read_header()?;
+        self.header = Some(BamHeader { header });
         Ok(())
     }
 
-    /// Returns Ok(true) if a record was read, Ok(false) if EOF.
-    fn parse_record<R: BufRead>(reader: &mut R, record: &mut BamRecord) -> io::Result<bool> {
-        // TODO: Replace with actual BAM parsing logic
-        let mut buffer = Vec::new();
-        let bytes_read = reader.read_until(b'\n', &mut buffer)?;
-        if bytes_read == 0 {
-            return Ok(false); // EOF
+    pub fn process(&mut self, file_path: &str) -> io::Result<()> {
+        let file = File::open(file_path)?;
+        let mut reader = Reader::new(BufReader::new(file));
+        self.decode_header(&mut reader)?;
+
+        let mut record = Record::default();
+
+        while reader.read_record(&mut record)? != 0 {
+            let mut accepted = true;
+        
+            for stat in self.stats.iter_mut() {
+                if let Some(header) = &self.header {
+                    if !stat.process(&record, &header.header)? {
+                        accepted = false;
+                        break;
+                    }
+                }
+            }
+        
+            if !accepted {
+                continue;
+            }
         }
-        record.raw_data = buffer;
-        Ok(true)
+
+        Ok(())
     }
 
-    /// Consumes the runner and returns the final statistics.
     pub fn finalize(self) -> Vec<Box<dyn Statistic>> {
         self.stats
     }
